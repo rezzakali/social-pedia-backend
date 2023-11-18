@@ -132,3 +132,142 @@ export const addRemoveFriend = [
     }
   },
 ];
+
+// ################## ADD SOCIAL LINK ###############
+export const addSocialLink = [
+  param('username').notEmpty().escape().withMessage('username is required!'),
+  body('platform').notEmpty().escape().withMessage('Platform is required!'),
+  body('link').notEmpty().withMessage('Link is required!'),
+  async (req, res, next) => {
+    // Check for validation errors
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { platform, link } = req.body;
+
+    try {
+      const { username } = req.params;
+      // find user by username
+      let user = await User.findOne({ username });
+      if (!user) {
+        return next(new ErrorResponse('User not found!', 404));
+      }
+
+      if (user.socialLinks.length >= 3) {
+        return next(
+          new ErrorResponse(
+            'You can add a maximum of three platforms only!',
+            400
+          )
+        );
+      }
+
+      // check platform already exist or not
+      const isPlatformAlreadyExist = user.socialLinks.some(
+        (socialLink) => socialLink.platform === platform
+      );
+      if (isPlatformAlreadyExist) {
+        return next(new ErrorResponse('Platform already exists!', 403));
+      }
+
+      user.socialLinks.push({ platform, link });
+      await user.save();
+
+      return res
+        .status(200)
+        .json({ success: true, message: 'Platform added successfully!' });
+    } catch (error) {
+      console.log(error);
+      return next(new ErrorResponse(error.message, 500));
+    }
+  },
+];
+
+// ################## UPDATE SOCIAL LINK ###############
+export const updateSocialLink = [
+  param('username').notEmpty().escape().withMessage('username is required!'),
+  body('platform').optional(),
+  body('link').optional(),
+  async (req, res, next) => {
+    // Check for validation errors
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { platform, link } = req.body;
+
+    try {
+      const { username } = req.params;
+      // find user by username
+      let user = await User.findOne({ username });
+      if (!user) {
+        return next(new ErrorResponse('User not found!', 404));
+      }
+
+      // check platform already exist or not
+      const existingPlatform = user.socialLinks.find(
+        (socialLink) => socialLink.platform === platform
+      );
+      if (existingPlatform) {
+        if (platform && platform.trim() !== '') {
+          existingPlatform.platform = platform.trim();
+        }
+
+        if (platform && link.trim() !== '') {
+          existingPlatform.link = link.trim();
+        }
+
+        await user.save();
+
+        return res
+          .status(200)
+          .json({ success: true, message: 'Platform updated successfully!' });
+      } else {
+        return next(new ErrorResponse('Platform does not exist!', 400));
+      }
+    } catch (error) {
+      console.log(error);
+      return next(new ErrorResponse(error.message, 500));
+    }
+  },
+];
+
+// ################## DELETE SOCIAL LINK ###############
+export const deleteSocialLink = [
+  param('username').notEmpty().escape().withMessage('username is required!'),
+  body('platform').notEmpty().escape().withMessage('Platform is required!'),
+  async (req, res, next) => {
+    // Check for validation errors
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { platform } = req.body;
+
+    try {
+      const { username } = req.params;
+      // find user by username
+      let user = await User.findOne({ username });
+      if (!user) {
+        return next(new ErrorResponse('User not found!', 404));
+      }
+
+      await User.findOneAndUpdate(
+        { username },
+        { $pull: { socialLinks: { platform } } }
+      );
+      return res
+        .status(200)
+        .json({ success: true, message: 'Platform deleted!' });
+    } catch (error) {
+      return next(new ErrorResponse(error.message, 500));
+    }
+  },
+];
